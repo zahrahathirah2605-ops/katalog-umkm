@@ -34,8 +34,11 @@ export default async function HalamanKatalog({ searchParams }) {
       );
     }
 
-    // Query produk dengan hitung jumlah total (count)
-    let query = supabase.from("produk").select("*", { count: "exact" });
+    // US-32: Hanya tampilkan produk aktif (aktif != false)
+    let query = supabase
+      .from("produk")
+      .select("*", { count: "exact" })
+      .neq("aktif", false);
 
     if (kategoriTerpilih) {
       query = query.eq("kategori", kategoriTerpilih);

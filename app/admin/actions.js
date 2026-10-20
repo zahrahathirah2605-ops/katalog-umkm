@@ -105,6 +105,7 @@ async function prosesUploadFoto(supabase, fileFoto) {
   return publicUrl;
 }
 
+// US-34: Validasi form admin di server dengan error per-field dan retaining values
 export async function tambahProduk(prevState, formData) {
   const supabase = await buatKoneksiAdminSesi();
 
@@ -116,20 +117,27 @@ export async function tambahProduk(prevState, formData) {
     return { error: "Akses ditolak: Hanya admin yang dapat menambah produk." };
   }
 
-  const nama = formData.get("nama")?.toString().trim();
-  const hargaRaw = formData.get("harga")?.toString().trim();
-  const kategori = formData.get("kategori")?.toString().trim() || null;
-  let foto_url = formData.get("foto_url")?.toString().trim() || null;
-  const deskripsi = formData.get("deskripsi")?.toString().trim() || null;
+  const nama = formData.get("nama")?.toString().trim() || "";
+  const hargaRaw = formData.get("harga")?.toString().trim() || "";
+  const kategori = formData.get("kategori")?.toString().trim() || "";
+  let foto_url = formData.get("foto_url")?.toString().trim() || "";
+  const deskripsi = formData.get("deskripsi")?.toString().trim() || "";
   const fileFoto = formData.get("file_foto");
 
+  const errors = {};
   if (!nama) {
-    return { error: "Nama produk wajib diisi." };
+    errors.nama = "Nama produk wajib diisi.";
   }
 
   const harga = parseInt(hargaRaw, 10);
-  if (isNaN(harga) || harga < 0) {
-    return { error: "Harga harus berupa angka dan tidak boleh negatif." };
+  if (hargaRaw === "" || isNaN(harga) || harga < 0) {
+    errors.harga = "Harga harus berupa angka dan tidak boleh negatif.";
+  }
+
+  const values = { nama, harga: hargaRaw, kategori, foto_url, deskripsi };
+
+  if (Object.keys(errors).length > 0) {
+    return { errors, values };
   }
 
   // Upload foto jika ada file yang diunggah (US-29)
@@ -140,20 +148,21 @@ export async function tambahProduk(prevState, formData) {
         foto_url = urlHasilUpload;
       }
     } catch (err) {
-      return { error: err.message };
+      return { errors: { foto_url: err.message }, values };
     }
   }
 
   const { error } = await supabase.from("produk").insert({
     nama,
     harga,
-    kategori,
-    foto_url,
-    deskripsi,
+    kategori: kategori || null,
+    foto_url: foto_url || null,
+    deskripsi: deskripsi || null,
+    aktif: true,
   });
 
   if (error) {
-    return { error: error.message || "Gagal menambahkan produk." };
+    return { error: error.message || "Gagal menambahkan produk.", values };
   }
 
   revalidatePath("/admin");
@@ -172,20 +181,27 @@ export async function ubahProduk(id, prevState, formData) {
     return { error: "Akses ditolak: Hanya admin yang dapat mengubah produk." };
   }
 
-  const nama = formData.get("nama")?.toString().trim();
-  const hargaRaw = formData.get("harga")?.toString().trim();
-  const kategori = formData.get("kategori")?.toString().trim() || null;
-  let foto_url = formData.get("foto_url")?.toString().trim() || null;
-  const deskripsi = formData.get("deskripsi")?.toString().trim() || null;
+  const nama = formData.get("nama")?.toString().trim() || "";
+  const hargaRaw = formData.get("harga")?.toString().trim() || "";
+  const kategori = formData.get("kategori")?.toString().trim() || "";
+  let foto_url = formData.get("foto_url")?.toString().trim() || "";
+  const deskripsi = formData.get("deskripsi")?.toString().trim() || "";
   const fileFoto = formData.get("file_foto");
 
+  const errors = {};
   if (!nama) {
-    return { error: "Nama produk wajib diisi." };
+    errors.nama = "Nama produk wajib diisi.";
   }
 
   const harga = parseInt(hargaRaw, 10);
-  if (isNaN(harga) || harga < 0) {
-    return { error: "Harga harus berupa angka dan tidak boleh negatif." };
+  if (hargaRaw === "" || isNaN(harga) || harga < 0) {
+    errors.harga = "Harga harus berupa angka dan tidak boleh negatif.";
+  }
+
+  const values = { nama, harga: hargaRaw, kategori, foto_url, deskripsi };
+
+  if (Object.keys(errors).length > 0) {
+    return { errors, values };
   }
 
   if (fileFoto && fileFoto.size > 0) {
@@ -195,7 +211,7 @@ export async function ubahProduk(id, prevState, formData) {
         foto_url = urlHasilUpload;
       }
     } catch (err) {
-      return { error: err.message };
+      return { errors: { foto_url: err.message }, values };
     }
   }
 
@@ -204,14 +220,14 @@ export async function ubahProduk(id, prevState, formData) {
     .update({
       nama,
       harga,
-      kategori,
-      foto_url,
-      deskripsi,
+      kategori: kategori || null,
+      foto_url: foto_url || null,
+      deskripsi: deskripsi || null,
     })
     .eq("id", id);
 
   if (error) {
-    return { error: error.message || "Gagal memperbarui produk." };
+    return { error: error.message || "Gagal memperbarui produk.", values };
   }
 
   revalidatePath("/admin");
@@ -244,3 +260,143 @@ export async function hapusProduk(formData) {
   revalidatePath("/");
   redirect("/admin");
 }
+
+// US-32: Aktif atau nonaktifkan produk
+export async function ubahStatusProduk(formData) {
+  const id = formData.get("id");
+  const aktifBaru = formData.get("aktif") === "true";
+
+  if (!id) return;
+
+  const supabase = await buatKoneksiAdminSesi();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Akses ditolak: Hanya admin yang dapat mengubah status produk.");
+  }
+
+  const { error } = await supabase
+    .from("produk")
+    .update({ aktif: aktifBaru })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message || "Gagal mengubah status produk.");
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath(`/produk/${id}`);
+}
+
+// US-31: Kelola Kategori (Tambah, Ubah, Hapus)
+export async function tambahKategori(prevState, formData) {
+  const supabase = await buatKoneksiAdminSesi();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Akses ditolak: Hanya admin yang dapat menambah kategori." };
+  }
+
+  const nama = formData.get("nama")?.toString().trim();
+  if (!nama) {
+    return { error: "Nama kategori wajib diisi." };
+  }
+
+  const { error } = await supabase.from("kategori").insert({ nama });
+  if (error) {
+    return { error: error.message || "Gagal menambah kategori." };
+  }
+
+  revalidatePath("/admin/kategori");
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { sukses: `Kategori "${nama}" berhasil ditambahkan.` };
+}
+
+export async function ubahKategori(prevState, formData) {
+  const supabase = await buatKoneksiAdminSesi();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Akses ditolak: Hanya admin yang dapat mengubah kategori." };
+  }
+
+  const id = formData.get("id");
+  const namaBaru = formData.get("nama")?.toString().trim();
+  const namaLama = formData.get("nama_lama")?.toString().trim();
+
+  if (!id || !namaBaru) {
+    return { error: "Nama kategori baru wajib diisi." };
+  }
+
+  const { error } = await supabase
+    .from("kategori")
+    .update({ nama: namaBaru })
+    .eq("id", id);
+
+  if (error) {
+    return { error: error.message || "Gagal mengubah kategori." };
+  }
+
+  // Perbarui kategori pada produk terkait jika ada nama lama
+  if (namaLama && namaLama !== namaBaru) {
+    await supabase
+      .from("produk")
+      .update({ kategori: namaBaru })
+      .eq("kategori", namaLama);
+  }
+
+  revalidatePath("/admin/kategori");
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { sukses: "Kategori berhasil diperbarui." };
+}
+
+export async function hapusKategori(formData) {
+  const id = formData.get("id");
+  const nama = formData.get("nama")?.toString().trim();
+
+  if (!id || !nama) return;
+
+  const supabase = await buatKoneksiAdminSesi();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Akses ditolak: Hanya admin yang dapat menghapus kategori.");
+  }
+
+  // Cek apakah kategori masih dipakai produk
+  const { count, error: cekError } = await supabase
+    .from("produk")
+    .select("id", { count: "exact", head: true })
+    .eq("kategori", nama);
+
+  if (cekError) {
+    throw new Error(cekError.message);
+  }
+
+  if (count && count > 0) {
+    throw new Error(
+      `Kategori "${nama}" tidak dapat dihapus karena masih digunakan oleh ${count} produk.`
+    );
+  }
+
+  const { error } = await supabase.from("kategori").delete().eq("id", id);
+  if (error) {
+    throw new Error(error.message || "Gagal menghapus kategori.");
+  }
+
+  revalidatePath("/admin/kategori");
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+

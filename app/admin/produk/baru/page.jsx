@@ -1,23 +1,22 @@
-"use client";
-
-import { useActionState } from "react";
+import { buatKoneksiAdminSesi } from "@/lib/supabase/admin";
 import NavAdmin from "@/components/NavAdmin";
-import FormProduk from "@/components/FormProduk";
-import { tambahProduk } from "@/app/admin/actions";
+import FormTambahProdukClient from "./FormTambahProdukClient";
 
-export default function HalamanTambahProduk() {
-  const [state, formAction, isPending] = useActionState(tambahProduk, null);
+export const dynamic = "force-dynamic";
+
+export default async function HalamanTambahProduk() {
+  const supabase = await buatKoneksiAdminSesi();
+  const { data: kategoriList = [] } = await supabase
+    .from("kategori")
+    .select("nama")
+    .order("nama", { ascending: true });
 
   return (
     <div className="flex flex-col gap-6 py-8">
       <NavAdmin />
       <h1 className="text-2xl font-extrabold">Tambah produk</h1>
-      <FormProduk
-        labelTombol="Simpan produk"
-        action={formAction}
-        error={state?.error}
-        isPending={isPending}
-      />
+      <FormTambahProdukClient daftarKategori={kategoriList} />
     </div>
   );
 }
+

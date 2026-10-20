@@ -47,7 +47,7 @@ export default async function HalamanDetailProduk({ params }) {
     .eq("id", id)
     .maybeSingle();
 
-  if (error || !produk) {
+  if (error || !produk || produk.aktif === false) {
     notFound();
   }
 

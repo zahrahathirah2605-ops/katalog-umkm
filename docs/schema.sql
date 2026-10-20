@@ -10,7 +10,8 @@ create table if not exists public.produk (
   deskripsi text,
   foto_url text,
   kategori text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  aktif boolean not null default true
 );
 
 -- 2. Row Level Security
@@ -88,3 +89,9 @@ select
 from kategori k
 cross join lateral unnest(k.daftar) with ordinality as p (nama, ke)
 where not exists (select 1 from public.produk where deskripsi like 'Contoh untuk uji paginasi%');
+
+-- 5. Table kategori for admin management
+create table if not exists public.kategori (
+  id bigint generated always as identity primary key,
+  nama text not null unique
+);

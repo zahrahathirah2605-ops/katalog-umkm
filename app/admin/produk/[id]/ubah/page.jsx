@@ -19,11 +19,16 @@ export default async function HalamanUbahProduk({ params }) {
     notFound();
   }
 
+  const { data: kategoriList = [] } = await supabase
+    .from("kategori")
+    .select("nama")
+    .order("nama", { ascending: true });
+
   return (
     <div className="flex flex-col gap-6 py-8">
       <NavAdmin />
       <h1 className="text-2xl font-extrabold">Ubah produk</h1>
-      <FormUbahProduk produk={produk} />
+      <FormUbahProduk produk={produk} daftarKategori={kategoriList} />
     </div>
   );
 }
