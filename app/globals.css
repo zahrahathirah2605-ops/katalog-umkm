@@ -27,6 +27,23 @@ html {
   background: var(--color-latar);
 }
 
+/* Dukungan kelas dark (US-25) */
+html.dark {
+  --color-latar: #121815;
+  --color-permukaan: #1d2521;
+  --color-garis: #2a3731;
+  --color-teks: #f2f5f3;
+  --color-teks-lembut: #9cb1a6;
+
+  --color-utama: #2ea87c;
+  --color-utama-gelap: #238965;
+
+  --color-harga: #f3ca7e;
+  --color-harga-latar: #3b2b11;
+
+  --color-bahaya: #f04438;
+}
+
 :focus-visible {
   outline: 3px solid var(--color-utama);
   outline-offset: 2px;

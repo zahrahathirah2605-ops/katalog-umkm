@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
-export async function proxy(request) {
+export async function middleware(request) {
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -57,8 +57,9 @@ export async function proxy(request) {
   return response;
 }
 
+export const proxy = middleware;
+export default middleware;
+
 export const config = {
-  matcher: [
-    "/admin/:path*",
-  ],
+  matcher: ["/admin/:path*"],
 };
